@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: anitrack
+  datasource:
+    url: jdbc:postgresql://localhost:5432/anitrack
+    username: postgres
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
