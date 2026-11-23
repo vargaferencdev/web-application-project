@@ -1,16 +1,14 @@
 # AniTrack — Anime & Manga Tracker
 
-A full-stack **Java** web application developed as a university project and potential portfolio piece.
+A full-stack **Java** web application developed as a university project and portfolio piece.
 
 AniTrack gives users a shared anime and manga catalog from which they can build a personal library, track their progress, rate titles, pick favorites and view their own statistics. An administrator manages the shared catalog.
-
-> **Project Status:** 🚧 In Progress
 
 ---
 
 ## 🎮 About the Application
 
-Users can browse the public catalog without an account. After registering, they can add titles to their own list, follow their progress episode by episode or chapter by chapter, and rate what they have watched or read.
+Users can browse the public catalog without an account. After registering, they can add titles to their own list, follow their progress episode by episode or chapter by chapter, rate what they have watched or read, and see charts about their habits.
 
 The main focus of the project is to build a complete, well-structured web application while practicing relational database design, SQL, a layered Spring Boot backend, and secure authentication and authorization.
 
@@ -18,7 +16,7 @@ The project is intentionally kept at a manageable size: a clean and well-documen
 
 ---
 
-## ✨ Planned Features
+## ✨ Features
 
 ### Accounts & Security
 - Registration and login
@@ -28,33 +26,86 @@ The project is intentionally kept at a manageable size: a clean and well-documen
 - Ownership checks (users can only modify their own data)
 
 ### Catalog
-- Anime and manga browsing
-- Search and filtering (title, type, genre, year)
-- Detailed title pages with genres
+- Anime and manga browsing with cover images
+- Search and filtering (title, type, genre, year) with paging
+- Detailed title pages with genres, tags and the community rating
 - Rating summary calculated from user reactions
+- Most popular and top rated rankings
 
 ### Personal Library
 - Personal anime and manga list
 - Status tracking (`PLANNING`, `CURRENT`, `COMPLETED`, `PAUSED`, `DROPPED`)
-- Progress tracking (episodes / chapters)
+- Progress tracking (episodes / chapters) with business rules
 - Three-way rating (`NEGATIVE`, `NEUTRAL`, `POSITIVE`)
 - Favorites (up to 6)
 
-### Statistics & Profile
-- Total titles, episodes watched, chapters read
-- Estimated watch time
-- Public profile page
+### Statistics
+- Total titles, episodes watched, chapters read, estimated watch time
+- Charts: list by status, anime vs manga, favorite genres
+- Completion rate and recently updated titles
 
 ### Administration
-- Admin interface for the catalog
+- Create, edit and delete titles (the rules for formats, statuses and fields are validated)
 - Management of genres and tags
-- Protected admin endpoints
+- Admin endpoints protected on the server (`ADMIN` role)
 
-### Planned Extensions
-- Friend search and management
-- GitHub-style activity heatmap
-- Dark / light / system theme
-- Trending, Upcoming and Top 100 lists
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- JDK 25
+- PostgreSQL 18 (pgAdmin 4 is optional)
+- Maven (the one bundled with IntelliJ works)
+
+### 1. Create the database
+
+```sql
+CREATE DATABASE anitrack;
+```
+
+### 2. Add your local configuration
+
+Create `src/main/resources/application-local.yml`. The file is listed in `.gitignore`, so your secrets are never committed.
+
+```yaml
+spring:
+  datasource:
+    password: YOUR_POSTGRES_PASSWORD
+
+app:
+  jwt:
+    secret: a-long-random-secret-of-at-least-32-characters
+```
+
+### 3. Run
+
+Start the application with the `local` profile, for example with the environment variable `SPRING_PROFILES_ACTIVE=local`, or:
+
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+Flyway creates the schema and the demo data on the first start. Then open:
+
+- Web application: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+
+### Demo accounts (development data only)
+
+| Username | Password | Role |
+|---|---|---|
+| `admin` | `Admin123!` | ADMIN |
+| `tester` | `Test1234!` | USER |
+| `alice`, `bob`, `anna`, `peter`, ... | `Test1234!` | USER |
+
+### Tests
+
+```bash
+mvn test -Dspring.profiles.active=local
+```
+
+The smoke tests run against the local database inside transactions that are rolled back, so the data stays untouched. They expect the original seed data, so if the data was changed by hand, recreate the schema and restart the application.
 
 ---
 
@@ -87,19 +138,28 @@ erDiagram
 | `user_media_list` | a user's personal list, `UNIQUE(user_id, media_id)` |
 | `ratings` | ratings, `UNIQUE(user_id, media_id)` |
 | `favorites` | favorites, `UNIQUE(user_id, position)`, `position BETWEEN 1 AND 6` |
-| `activity_log` | event log for statistics and the heatmap |
-| `friendships` | user connections (planned extension) |
+| `activity_log` | event log, prepared for the activity heatmap (not used yet) |
+| `friendships` | user connections, prepared for the friends feature (not used yet) |
 
-**Database-level safeguards:** primary and foreign keys, `UNIQUE` constraints, `CHECK` constraints (for example the status must match the media type, `progress >= 0`), and `ON DELETE CASCADE` on tables tied to users and media.
+**Migrations**
 
-Derived values such as rating percentages, popularity and statistics are not stored. They are computed with SQL queries (`JOIN`, `GROUP BY`, `COUNT`, `AVG`, `SUM`).
+| File | Content |
+|---|---|
+| `V1__init.sql` | schema: tables, constraints, indexes |
+| `V2__seed.sql` | demo users, a first set of titles, lists and ratings |
+| `V3__more_seed.sql` | larger demo catalog (61 titles) and more demo users |
+| `V4__covers.sql` | cover image URLs, generated by `tools/FetchCovers.java` |
+
+**Database-level safeguards:** primary and foreign keys, `UNIQUE` constraints, `CHECK` constraints (for example the format and status must match the media type, anime and manga have different fields, `progress >= 0`), and `ON DELETE CASCADE` on tables tied to users and media.
+
+Derived values such as rating percentages, popularity and statistics are not stored. They are computed with SQL queries (`JOIN`, `GROUP BY`, `COUNT`, `SUM`, `FILTER`).
 
 ---
 
 ## 🏗️ Architecture
 
 ```text
-Frontend (HTML / CSS / JS, Bootstrap)
+Frontend (HTML / CSS / JS, Bootstrap, Chart.js)
         │  fetch()
         ▼
 Controller   →  REST endpoints, input validation
@@ -113,30 +173,33 @@ PostgreSQL
 
 ---
 
-## 🔌 REST API (Planned)
+## 🔌 REST API
 
-| Area | Endpoints |
-|---|---|
-| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout` |
-| Catalog | `GET /api/media`, `GET /api/media/{id}` |
-| Personal list | `GET/POST /api/user-media`, `PATCH/DELETE /api/user-media/{id}` |
-| Ratings | `POST/PATCH/DELETE /api/media/{id}/rating` |
-| Favorites | `GET/POST /api/favorites`, `DELETE /api/favorites/{mediaId}` |
-| Profile | `GET /api/users/{username}`, `PATCH /api/profile` |
-| Statistics | `GET /api/statistics` |
-| Admin | `POST/PUT/DELETE /api/admin/media`, `/api/admin/genres` |
+| Area | Endpoints | Access |
+|---|---|---|
+| Auth | `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me` | public / logged in |
+| Catalog | `GET /api/media` (search, paging), `GET /api/media/{id}`, `GET /api/media/popular`, `GET /api/media/top-rated`, `GET /api/genres`, `GET /api/tags` | public |
+| Personal list | `GET/POST /api/me/list`, `PATCH/DELETE /api/me/list/{entryId}` | logged in |
+| Ratings | `GET/PUT/DELETE /api/me/ratings/{mediaId}` | logged in |
+| Favorites | `GET/POST /api/me/favorites`, `DELETE /api/me/favorites/{mediaId}` | logged in |
+| Statistics | `GET /api/me/statistics`, `GET /api/me/statistics/genres` | logged in |
+| Admin | `POST/PUT/DELETE /api/admin/media`, `/api/admin/genres`, `/api/admin/tags` | `ADMIN` only |
 
-Once the application is running, the Swagger UI is available at `http://localhost:8080/swagger-ui.html`.
+Everything that belongs to a user lives under `/api/me/**`. The user id is never sent by the client, it always comes from the token.
+
+Error responses use the standard `ProblemDetail` JSON format (`401` not logged in, `403` not allowed, `404` not found, `409` duplicate, `400` validation or business rule).
 
 ---
 
 ## 🔐 Security
 
 - Passwords are stored only as BCrypt hashes.
-- Authentication is **JWT**-based. The token travels in an **HttpOnly, SameSite=Lax cookie**, so JavaScript cannot read it (protection against XSS), and the `SameSite` attribute protects against CSRF.
-- Token claims: `sub` (user id), `username`, `role`, `iat`, `exp`. No password or other sensitive data is included.
+- Authentication is **JWT**-based (HS256). The token travels in an **HttpOnly, SameSite=Lax cookie**, so JavaScript cannot read it (protection against XSS). `SameSite=Lax` together with the stateless design is the reason why CSRF tokens are not needed.
+- Token claims: `sub` (user id), `username`, `role`, `iat`, `exp` (60 minutes). The token is signed, not encrypted, so it contains no password or other sensitive data.
+- Login failures return the same message for an unknown user and a wrong password.
 - `/api/admin/**` endpoints require the `ADMIN` role.
-- All input is validated with Jakarta Validation.
+- **Ownership checks:** the service layer verifies that a list entry belongs to the logged-in user before changing or deleting it (otherwise `403`).
+- All input is validated with Jakarta Validation, and everything shown in the frontend is escaped.
 
 ---
 
@@ -144,7 +207,7 @@ Once the application is running, the Swagger UI is available at `http://localhos
 
 ### Backend
 - **Java 25**
-- **Spring Boot** (Web, Data JPA, Security, Validation)
+- **Spring Boot 4** (Web, Data JPA, Security, Validation)
 - Hibernate / JPA with native SQL queries
 - MapStruct, Lombok
 - springdoc OpenAPI (Swagger UI)
@@ -155,13 +218,14 @@ Once the application is running, the Swagger UI is available at `http://localhos
 - pgAdmin 4
 
 ### Frontend
-- HTML5, CSS3, JavaScript (`fetch`)
+- HTML5, CSS3, JavaScript (`fetch`, no build step)
 - Bootstrap 5
+- Chart.js
 
 ### Tools
-- Maven (Maven Wrapper)
+- Maven
 - IntelliJ IDEA
-- Postman
+- Postman / Swagger UI
 - Git and GitHub
 
 ---
@@ -173,10 +237,10 @@ The project follows a layered Spring Boot architecture.
 ```text
 src/main/
 ├── java/hu/anitrack/
-│   ├── config/        # security and OpenAPI configuration
+│   ├── config/        # security and JWT configuration
 │   ├── controller/    # REST endpoints
 │   ├── service/       # business logic
-│   ├── repository/    # data access
+│   ├── repository/    # data access (+ projections for native queries)
 │   ├── entity/        # Java counterparts of the database tables
 │   ├── dto/           # request/response objects
 │   ├── mapper/        # MapStruct mappers
@@ -185,37 +249,38 @@ src/main/
 │
 └── resources/
     ├── application.yml
-    ├── db/migration/  # Flyway migrations (V1__init.sql, ...)
-    └── static/        # frontend files
-```
+    ├── db/migration/  # Flyway migrations (V1 ... V4)
+    └── static/        # frontend files (index.html, css/, js/)
 
-The exact structure may change during development.
+src/test/              # smoke tests for the service layer
+tools/                 # FetchCovers.java, the generator of V4__covers.sql
+```
 
 ---
 
-## 🚧 Development Status
+## 🖼️ Cover Images
 
-The project is currently **in active development**.
+The cover URLs in `V4__covers.sql` were collected with `tools/FetchCovers.java` from the public [AniList](https://anilist.co) API. The images are loaded from AniList's servers and remain the property of their respective owners. They are used here for educational purposes only.
 
-### Current Focus
+---
 
-- [ ] Finalize requirements and data model
-- [ ] Create the PostgreSQL schema and seed data
-- [ ] Set up the Spring Boot project and database connection
-- [ ] Implement entities and repositories
-- [ ] Implement native SQL queries
-- [ ] Implement the service layer and REST controllers
-- [ ] Implement authentication and authorization
-- [ ] Build the frontend (catalog, search, personal list, profile)
-- [ ] Build the admin interface
-- [ ] Testing and documentation
-- [ ] Extensions: friends, heatmap, theme
+## 🔭 Future Work
+
+Ideas that were intentionally left out to keep the project at a manageable size:
+
+- Friend search and friend list, public profiles
+- GitHub-style activity heatmap (the `activity_log` table is already prepared)
+- Dark / light / system theme switch
+- Trending, Upcoming and Top 100 lists
+- User management in the admin interface
+- Refresh tokens and token revocation
+- Docker Compose setup and a CI pipeline
 
 ---
 
 ## 🎓 Academic Context
 
-This project is being developed as part of the **Programtervező Informatikus BSc** studies at the **University of Debrecen**.
+This project was developed as part of the **Programtervező Informatikus BSc** studies at the **University of Debrecen**.
 
 The project serves as a practical exploration of database-driven web development, with particular focus on:
 
@@ -230,49 +295,27 @@ The project serves as a practical exploration of database-driven web development
 
 ---
 
-## 📌 Project Goals
-
-The primary goal is to develop a functional, well-structured and well-documented web application that demonstrates the database design and software engineering knowledge acquired during the degree program.
-
-The project is developed iteratively, with the core features first and the extensions afterwards.
-
----
-
 ## 🔀 Git Workflow
 
-Branches: `main`, `develop`, `feature/...`
-
-Commit messages follow a convention:
+Development happens on `main` in small steps. Commit messages follow a convention:
 
 ```text
-feat: create media entity
+feat: add admin catalog management
 fix: validate media progress
 docs: update readme
+chore: add cover images migration
 ```
 
 ---
 
 ## 📷 Screenshots
 
-### Catalog
-Search, filters, rankings with cover images.
+Screenshots will be added soon.
 
+<!--
 ![Catalog](docs/screenshots/catalog.png)
-
-### Title details
-Community rating, personal rating, list and favorites.
-
-![Title details](docs/screenshots/detail.png)
-
-### Statistics
-Charts about the personal list.
-
 ![Statistics](docs/screenshots/statistics.png)
-
-### Admin interface
-Managing the catalog (admin role only).
-
-![Admin interface](docs/screenshots/admin.png)
+-->
 
 ---
 
@@ -284,6 +327,6 @@ Managing the catalog (admin role only).
 
 ## 📄 License
 
-This project is currently developed as a university/academic project.
+This project is developed as a university/academic project.
 
 Third-party libraries, images and other resources remain subject to their respective licenses.
