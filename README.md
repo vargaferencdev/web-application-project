@@ -4,6 +4,8 @@ A full-stack **Java** web application developed as a university project and port
 
 AniTrack gives users a shared anime and manga catalog from which they can build a personal library, track their progress, rate titles, pick favorites and view their own statistics. An administrator manages the shared catalog.
 
+> **Project Status:** 🚧 In Progress — the core application is complete, polishing and documentation are ongoing.
+
 ---
 
 ## 🎮 About the Application
@@ -313,22 +315,22 @@ chore: add cover images migration
 ### Catalog
 Search, filters, rankings with cover images.
 
-![Catalog](docs/screenshots/catalog.png)
+![Catalog](docs/screenshots/catalog.jpg)
 
 ### Title details
 Community rating, personal rating, list and favorites.
 
-![Title details](docs/screenshots/detail.png)
+![Title details](docs/screenshots/detail.jpg)
 
 ### Statistics
 Charts about the personal list.
 
-![Statistics](docs/screenshots/statistics.png)
+![Statistics](docs/screenshots/statistics.jpg)
 
 ### Admin interface
 Managing the catalog (admin role only).
 
-![Admin interface](docs/screenshots/admin.png)
+![Admin interface](docs/screenshots/admin.jpg)
 
 ---
 
