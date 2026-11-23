@@ -11,4 +11,5 @@ public interface RatingSummary {
     Long getVotes();
 
     Double getPositivePercent();
+    String getCoverImageUrl();
 }

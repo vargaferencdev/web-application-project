@@ -9,4 +9,5 @@ public interface PopularMedia {
     String getMediaType();
 
     Long getListCount();
+    String getCoverImageUrl();
 }

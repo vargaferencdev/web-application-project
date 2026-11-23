@@ -14,6 +14,7 @@ public interface ListEntryMapper {
     @Mapping(target = "mediaId", source = "media.id")
     @Mapping(target = "title", source = "media.title")
     @Mapping(target = "mediaType", source = "media.mediaType")
+    @Mapping(target = "coverImageUrl", source = "media.coverImageUrl")
     @Mapping(target = "total", source = "media", qualifiedByName = "totalOf")
     ListEntryResponse toResponse(UserMediaList entry);
 

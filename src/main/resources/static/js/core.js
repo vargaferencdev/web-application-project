@@ -99,21 +99,25 @@ function nice(enumValue) {
     return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** A cover image. Use cssClass 'thumb' for the small version in rankings and lists. */
 function coverHtml(url, title, cssClass = 'cover') {
     if (url) {
-        return '<img class="' + cssClass + '" loading="lazy" src="' + esc(url) + '" alt="' + esc(title) + '">';
+        return '<img class="' + cssClass + '" loading="lazy" referrerpolicy="no-referrer" src="' + esc(url) +
+            '" alt="' + esc(title) + '">';
     }
-    return placeholderHtml(title);
+    return placeholderHtml(title, cssClass.includes('thumb'));
 }
 
-function placeholderHtml(title) {
-    return '<div class="cover-placeholder">' + esc((title || '?').charAt(0).toUpperCase()) + '</div>';
+function placeholderHtml(title, small = false) {
+    return '<div class="' + (small ? 'thumb-placeholder' : 'cover-placeholder') + '">' +
+        esc((title || '?').charAt(0).toUpperCase()) + '</div>';
 }
 
-// a broken image URL falls back to the placeholder
+// a missing or broken image URL falls back to the placeholder
 document.addEventListener('error', event => {
-    if (event.target.tagName === 'IMG' && event.target.classList.contains('cover')) {
-        event.target.outerHTML = placeholderHtml(event.target.alt);
+    const image = event.target;
+    if (image.tagName === 'IMG' && (image.classList.contains('cover') || image.classList.contains('thumb'))) {
+        image.outerHTML = placeholderHtml(image.alt, image.classList.contains('thumb'));
     }
 }, true);
 

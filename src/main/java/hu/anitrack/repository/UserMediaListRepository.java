@@ -2,6 +2,7 @@ package hu.anitrack.repository;
 
 import hu.anitrack.entity.UserMediaList;
 import hu.anitrack.entity.enums.ListStatus;
+import hu.anitrack.repository.projection.GenreShare;
 import hu.anitrack.repository.projection.PopularMedia;
 import hu.anitrack.repository.projection.UserStats;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -31,10 +32,11 @@ public interface UserMediaListRepository extends JpaRepository<UserMediaList, Lo
             SELECT m.id AS "mediaId",
                    m.title AS "title",
                    m.media_type AS "mediaType",
-                   COUNT(uml.id) AS "listCount"
+                   COUNT(uml.id) AS "listCount",
+                   m.cover_image_url AS "coverImageUrl"
             FROM media m
             JOIN user_media_list uml ON uml.media_id = m.id
-            GROUP BY m.id, m.title, m.media_type
+            GROUP BY m.id, m.title, m.media_type, m.cover_image_url
             ORDER BY "listCount" DESC, m.title
             LIMIT :maxResults
             """, nativeQuery = true)
@@ -54,4 +56,18 @@ public interface UserMediaListRepository extends JpaRepository<UserMediaList, Lo
             WHERE uml.user_id = :userId
             """, nativeQuery = true)
     UserStats getUserStats(@Param("userId") Long userId);
+
+    /** The genres a user has the most titles of on their list (for the statistics page). */
+    @Query(value = """
+            SELECT g.name AS "name",
+                   COUNT(*) AS "titleCount"
+            FROM user_media_list uml
+            JOIN media_genres mg ON mg.media_id = uml.media_id
+            JOIN genres g ON g.id = mg.genre_id
+            WHERE uml.user_id = :userId
+            GROUP BY g.name
+            ORDER BY "titleCount" DESC, g.name
+            LIMIT :maxResults
+            """, nativeQuery = true)
+    List<GenreShare> findTopGenres(@Param("userId") Long userId, @Param("maxResults") int maxResults);
 }

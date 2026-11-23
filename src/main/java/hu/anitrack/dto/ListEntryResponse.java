@@ -16,6 +16,7 @@ public record ListEntryResponse(
         Integer total,          // total episodes (anime) or chapters (manga), null if unknown
         LocalDate startedAt,
         LocalDate completedAt,
-        Instant updatedAt
+        Instant updatedAt,
+        String coverImageUrl
 ) {
 }

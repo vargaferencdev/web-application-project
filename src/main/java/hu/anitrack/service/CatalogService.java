@@ -67,7 +67,8 @@ public class CatalogService {
     @Transactional(readOnly = true)
     public List<PopularMediaResponse> popular(int limit) {
         return listRepository.findMostPopular(clampLimit(limit)).stream()
-                .map(p -> new PopularMediaResponse(p.getMediaId(), p.getTitle(), p.getMediaType(), p.getListCount()))
+                .map(p -> new PopularMediaResponse(p.getMediaId(), p.getTitle(), p.getMediaType(), p.getListCount(),
+                        p.getCoverImageUrl()))
                 .toList();
     }
 
@@ -75,7 +76,7 @@ public class CatalogService {
     public List<TopRatedResponse> topRated(int minVotes, int limit) {
         return ratingRepository.findTopRated(Math.max(minVotes, 1), clampLimit(limit)).stream()
                 .map(r -> new TopRatedResponse(r.getMediaId(), r.getTitle(), r.getMediaType(),
-                        r.getVotes(), r.getPositivePercent()))
+                        r.getVotes(), r.getPositivePercent(), r.getCoverImageUrl()))
                 .toList();
     }
 

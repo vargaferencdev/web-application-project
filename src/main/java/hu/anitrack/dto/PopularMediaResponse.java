@@ -4,6 +4,7 @@ public record PopularMediaResponse(
         Long mediaId,
         String title,
         String mediaType,
-        Long listCount
+        Long listCount,
+        String coverImageUrl
 ) {
 }

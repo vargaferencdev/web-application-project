@@ -21,10 +21,11 @@ public interface RatingRepository extends JpaRepository<Rating, Long> {
                    m.media_type AS "mediaType",
                    COUNT(*) AS "votes",
                    CAST(ROUND(100.0 * COUNT(*) FILTER (WHERE r.reaction = 'POSITIVE') / COUNT(*), 1)
-                        AS double precision) AS "positivePercent"
+                        AS double precision) AS "positivePercent",
+                   m.cover_image_url AS "coverImageUrl"
             FROM media m
             JOIN ratings r ON r.media_id = m.id
-            GROUP BY m.id, m.title, m.media_type
+            GROUP BY m.id, m.title, m.media_type, m.cover_image_url
             HAVING COUNT(*) >= :minVotes
             ORDER BY "positivePercent" DESC, "votes" DESC, m.title
             LIMIT :maxResults

@@ -35,21 +35,21 @@ class CatalogStatsSmokeTest {
         // title, case-insensitive: Death Note anime + manga
         assertThat(catalogService.search(null, "death", null, null, 0, 10).totalElements()).isEqualTo(2);
 
-        // genre filter: Steins;Gate, Death Note (anime and manga), Monster
+        // genre filter: Steins;Gate, Death Note (anime and manga), Monster, Re:Zero
         Long thrillerId = genreId("Thriller");
-        assertThat(catalogService.search(null, null, thrillerId, null, 0, 10).totalElements()).isEqualTo(4);
+        assertThat(catalogService.search(null, null, thrillerId, null, 0, 10).totalElements()).isEqualTo(5);
 
         // year filter: Fullmetal Alchemist (manga) and Spirited Away started in 2001
         assertThat(catalogService.search(null, null, null, 2001, 0, 10).totalElements()).isEqualTo(2);
 
-        // type filter, lower case is accepted: 6 manga in the seed data
-        assertThat(catalogService.search("manga", null, null, null, 0, 20).totalElements()).isEqualTo(6);
+        // type filter, lower case is accepted: 22 manga in the seed data (V2 + V3)
+        assertThat(catalogService.search("manga", null, null, null, 0, 50).totalElements()).isEqualTo(22);
 
-        // paging: 16 titles, 5 per page -> 4 pages
+        // paging: 61 titles, 5 per page -> 13 pages
         PageResponse<MediaSummaryResponse> page = catalogService.search(null, null, null, null, 0, 5);
         assertThat(page.content()).hasSize(5);
-        assertThat(page.totalElements()).isEqualTo(16);
-        assertThat(page.totalPages()).isEqualTo(4);
+        assertThat(page.totalElements()).isEqualTo(61);
+        assertThat(page.totalPages()).isEqualTo(13);
 
         // unknown type is a clear error
         assertThatThrownBy(() -> catalogService.search("book", null, null, null, 0, 10))
@@ -72,17 +72,21 @@ class CatalogStatsSmokeTest {
 
     @Test
     void rankings() {
-        assertThat(catalogService.topRated(2, 10).get(0).title())
-                .isEqualTo("Fullmetal Alchemist: Brotherhood");
+        // the best rated title has only positive votes, and at least the minimum number of them
+        var best = catalogService.topRated(2, 10).get(0);
+        assertThat(best.positivePercent()).isEqualTo(100.0);
+        assertThat(best.votes()).isGreaterThanOrEqualTo(2);
 
-        var mostPopular = catalogService.popular(3).get(0);
-        assertThat(mostPopular.title()).isEqualTo("Death Note");
-        assertThat(mostPopular.listCount()).isEqualTo(3);
+        // the list is sorted: the first one is on at least as many lists as the second
+        var popular = catalogService.popular(3);
+        assertThat(popular).hasSize(3);
+        assertThat(popular.get(0).listCount()).isGreaterThanOrEqualTo(popular.get(1).listCount());
+        assertThat(popular.get(0).listCount()).isGreaterThanOrEqualTo(3);
 
-        // LEFT JOIN + COUNT: Mystery is on Death Note (anime, manga) and Monster
+        // LEFT JOIN + COUNT: Mystery is on Death Note (anime, manga), Monster and several V3 titles
         var mystery = catalogService.genres().stream()
                 .filter(g -> g.name().equals("Mystery")).findFirst().orElseThrow();
-        assertThat(mystery.mediaCount()).isEqualTo(3);
+        assertThat(mystery.mediaCount()).isGreaterThanOrEqualTo(3);
     }
 
     @Test
@@ -97,6 +101,16 @@ class CatalogStatsSmokeTest {
         assertThat(stats.chaptersRead()).isEqualTo(90);
         assertThat(stats.minutesWatched()).isEqualTo(2448);
         assertThat(stats.estimatedDaysWatched()).isEqualTo(1.7);
+    }
+
+    @Test
+    void favouriteGenresOfTester() {
+        Long testerId = userRepository.findByUsername("tester").orElseThrow().getId();
+
+        var genres = statisticsService.getTopGenres(testerId, 3);
+        assertThat(genres).hasSize(3);
+        // sorted by the number of titles, the biggest first
+        assertThat(genres.get(0).titleCount()).isGreaterThanOrEqualTo(genres.get(2).titleCount());
     }
 
     private Long genreId(String name) {

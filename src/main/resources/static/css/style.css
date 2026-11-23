@@ -12,3 +12,22 @@
 .rating-bar { height: 1.4rem; }
 .progress-input { width: 5.5rem; }
 .clickable { cursor: pointer; }
+
+/* small covers in rankings and lists */
+.thumb { width: 56px; height: 80px; object-fit: cover; border-radius: .25rem; flex-shrink: 0; background: var(--bs-secondary-bg); }
+.thumb-placeholder {
+    width: 56px; height: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem; font-weight: 700; color: var(--bs-secondary-color);
+    background: linear-gradient(135deg, var(--bs-secondary-bg), var(--bs-tertiary-bg)); border-radius: .25rem;
+}
+.rank { width: 2rem; text-align: center; font-size: 1.4rem; font-weight: 700; color: var(--bs-secondary-color); flex-shrink: 0; }
+.rank-1 { color: #f5c542; }
+.rank-2 { color: #c0c7d1; }
+.rank-3 { color: #cd8b4a; }
+.ranking-item { transition: background .12s ease; }
+.ranking-item:hover { background: var(--bs-tertiary-bg); }
+
+/* statistics */
+.stat-tile .stat-icon { font-size: 1.6rem; }
+.stat-tile .stat-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.chart-box { position: relative; height: 260px; }

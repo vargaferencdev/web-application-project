@@ -64,6 +64,8 @@ async function route() {
         go('#/login');
         return;
     }
+    activeCharts.forEach(chart => chart.destroy());
+    activeCharts = [];
     view.innerHTML = '<div class="text-center py-5"><div class="spinner-border"></div></div>';
     try {
         switch (page) {
@@ -92,7 +94,7 @@ async function viewCatalog() {
     const [genres, popular, topRated] = await Promise.all([
         Api.get('/api/genres'),
         Api.get('/api/media/popular?limit=5'),
-        Api.get('/api/media/top-rated?minVotes=1&limit=5')
+        Api.get('/api/media/top-rated?minVotes=2&limit=5')
     ]);
     view.innerHTML = `
         <h1 class="h3 mb-3">Catalog</h1>
@@ -120,23 +122,17 @@ async function viewCatalog() {
         </form>
         <div id="results"></div>
         <div class="row mt-5 g-4">
-            <div class="col-md-6">
-                <h2 class="h5">Most popular</h2>
-                <ul class="list-group">
-                    ${popular.map(p => `<li class="list-group-item d-flex justify-content-between">
-                        <a href="#/media/${p.mediaId}">${esc(p.title)}</a>
-                        <span class="text-secondary">${p.listCount} lists</span></li>`).join('')
-                        || '<li class="list-group-item text-secondary">Nothing yet</li>'}
-                </ul>
+            <div class="col-lg-6">
+                <h2 class="h5">🔥 Most popular</h2>
+                ${ranking(popular.map(p => ({
+                    id: p.mediaId, title: p.title, type: p.mediaType, cover: p.coverImageUrl,
+                    stat: p.listCount + (p.listCount === 1 ? ' list' : ' lists')})))}
             </div>
-            <div class="col-md-6">
-                <h2 class="h5">Top rated</h2>
-                <ul class="list-group">
-                    ${topRated.map(t => `<li class="list-group-item d-flex justify-content-between">
-                        <a href="#/media/${t.mediaId}">${esc(t.title)}</a>
-                        <span class="text-secondary">${t.positivePercent}% positive · ${t.votes} votes</span></li>`).join('')
-                        || '<li class="list-group-item text-secondary">No ratings yet</li>'}
-                </ul>
+            <div class="col-lg-6">
+                <h2 class="h5">⭐ Top rated</h2>
+                ${ranking(topRated.map(t => ({
+                    id: t.mediaId, title: t.title, type: t.mediaType, cover: t.coverImageUrl,
+                    stat: t.positivePercent + '% liked', sub: t.votes + ' votes'})))}
             </div>
         </div>`;
     await loadResults();
@@ -154,6 +150,23 @@ async function loadResults() {
         ? '<p class="text-secondary">No titles found.</p>'
         : `<div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">${data.content.map(mediaCard).join('')}</div>`
           + pager(data, 'page');
+}
+
+/** A numbered list with a small cover for every title (popular / top rated). */
+function ranking(items) {
+    if (items.length === 0) {
+        return '<p class="text-secondary">Nothing here yet.</p>';
+    }
+    return '<div class="list-group">' + items.map((item, index) => `
+        <a href="#/media/${item.id}" class="list-group-item list-group-item-action ranking-item d-flex align-items-center gap-3 py-2">
+            <span class="rank rank-${index + 1}">${index + 1}</span>
+            ${coverHtml(item.cover, item.title, 'thumb')}
+            <div class="flex-grow-1">
+                <div class="fw-semibold">${esc(item.title)}</div>
+                <div class="small text-secondary">${nice(item.type)}${item.sub ? ' · ' + esc(item.sub) : ''}</div>
+            </div>
+            <span class="badge text-bg-primary">${esc(item.stat)}</span>
+        </a>`).join('') + '</div>';
 }
 
 function mediaCard(m) {
@@ -334,7 +347,12 @@ async function viewList() {
                 <tbody>
                     ${shown.map(e => `
                         <tr>
-                            <td><a href="#/media/${e.mediaId}">${esc(e.title)}</a></td>
+                            <td>
+                                <a href="#/media/${e.mediaId}" class="d-flex align-items-center gap-3 text-decoration-none">
+                                    ${coverHtml(e.coverImageUrl, e.title, 'thumb')}
+                                    <span>${esc(e.title)}</span>
+                                </a>
+                            </td>
                             <td>${nice(e.mediaType)}</td>
                             <td>
                                 <select class="form-select form-select-sm" data-change="entry-status" data-id="${e.id}">
@@ -409,26 +427,110 @@ Actions['remove-favorite'] = async element => {
 
 /* ----------------------------- statistics ---------------------------- */
 
+const STATUS_COLORS = {
+    PLANNING: '#6c757d', CURRENT: '#0dcaf0', COMPLETED: '#198754', PAUSED: '#ffc107', DROPPED: '#dc3545'
+};
+let activeCharts = [];
+
+function drawChart(canvasId, config) {
+    activeCharts.push(new Chart(document.getElementById(canvasId), config));
+}
+
+function formatTime(minutes) {
+    const days = Math.floor(minutes / 1440);
+    const hours = Math.floor((minutes % 1440) / 60);
+    return days > 0 ? days + ' d ' + hours + ' h' : hours + ' h';
+}
+
 async function viewStats() {
-    const s = await Api.get('/api/me/statistics');
+    const [s, genres, entries] = await Promise.all([
+        Api.get('/api/me/statistics'),
+        Api.get('/api/me/statistics/genres?limit=6'),
+        Api.get('/api/me/list')
+    ]);
+    const byStatus = status => entries.filter(e => e.status === status).length;
+    const completed = byStatus('COMPLETED');
+    const completion = entries.length === 0 ? 0 : Math.round(100 * completed / entries.length);
+    const recent = [...entries].sort((x, y) => String(y.updatedAt).localeCompare(String(x.updatedAt))).slice(0, 5);
+
     const tiles = [
-        ['Titles in your list', s.totalTitles],
-        ['Anime', s.animeCount],
-        ['Manga', s.mangaCount],
-        ['Episodes watched', s.episodesWatched],
-        ['Chapters read', s.chaptersRead],
-        ['Time watched', (s.minutesWatched / 60).toFixed(1) + ' h'],
-        ['Estimated days watched', s.estimatedDaysWatched]
+        ['📚', 'Titles on your list', s.totalTitles, s.animeCount + ' anime · ' + s.mangaCount + ' manga'],
+        ['📺', 'Episodes watched', s.episodesWatched, 'about ' + formatTime(s.minutesWatched) + ' of anime'],
+        ['📖', 'Chapters read', s.chaptersRead, 'across your manga'],
+        ['⏱️', 'Estimated days watched', s.estimatedDaysWatched, 'episodes × episode length']
     ];
+
     view.innerHTML = `
-        <h1 class="h3 mb-3">Statistics</h1>
-        <div class="row row-cols-2 row-cols-md-4 g-3">
-            ${tiles.map(([label, value]) => `
-                <div class="col"><div class="card text-center h-100"><div class="card-body">
-                    <div class="display-6">${esc(value)}</div>
-                    <div class="text-secondary">${label}</div>
+        <h1 class="h3 mb-3">Statistics of ${esc(Auth.user.username)}</h1>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-3 mb-4">
+            ${tiles.map(([icon, label, value, note]) => `
+                <div class="col"><div class="card stat-tile h-100"><div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="text-secondary">${label}</div><span class="stat-icon">${icon}</span>
+                    </div>
+                    <div class="stat-value">${esc(value)}</div>
+                    <div class="small text-secondary">${esc(note)}</div>
                 </div></div></div>`).join('')}
-        </div>`;
+        </div>
+
+        <div class="card mb-4"><div class="card-body">
+            <div class="d-flex justify-content-between mb-1">
+                <span>Completion rate</span><span class="text-secondary">${completed} of ${entries.length} titles completed</span>
+            </div>
+            <div class="progress" style="height: 1.1rem">
+                <div class="progress-bar bg-success" style="width: ${completion}%">${completion}%</div>
+            </div>
+        </div></div>
+
+        ${entries.length === 0
+            ? '<p class="text-secondary">Add some titles to your list to see charts here.</p>'
+            : `<div class="row g-3 mb-4">
+                <div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body">
+                    <h2 class="h6">List by status</h2><div class="chart-box"><canvas id="chartStatus"></canvas></div>
+                </div></div></div>
+                <div class="col-md-6 col-lg-4"><div class="card h-100"><div class="card-body">
+                    <h2 class="h6">Anime vs manga</h2><div class="chart-box"><canvas id="chartType"></canvas></div>
+                </div></div></div>
+                <div class="col-lg-4"><div class="card h-100"><div class="card-body">
+                    <h2 class="h6">Favourite genres</h2><div class="chart-box"><canvas id="chartGenres"></canvas></div>
+                </div></div></div>
+            </div>
+            <h2 class="h5">Recently updated</h2>
+            <div class="list-group">
+                ${recent.map(e => `
+                    <a href="#/media/${e.mediaId}" class="list-group-item list-group-item-action ranking-item d-flex align-items-center gap-3 py-2">
+                        ${coverHtml(e.coverImageUrl, e.title, 'thumb')}
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">${esc(e.title)}</div>
+                            <div class="small text-secondary">${nice(e.mediaType)} · ${e.progress} / ${e.total ?? '?'}</div>
+                        </div>
+                        <span class="badge" style="background:${STATUS_COLORS[e.status]}">${nice(e.status)}</span>
+                    </a>`).join('')}
+            </div>`}`;
+
+    if (entries.length === 0) return;
+    Chart.defaults.color = getComputedStyle(document.body).color;
+    Chart.defaults.borderColor = 'rgba(128, 128, 128, 0.25)';
+    const statuses = LIST_STATUSES.filter(st => byStatus(st) > 0);
+    drawChart('chartStatus', {
+        type: 'doughnut',
+        data: {labels: statuses.map(nice), datasets: [{data: statuses.map(byStatus),
+            backgroundColor: statuses.map(st => STATUS_COLORS[st]), borderWidth: 0}]},
+        options: {maintainAspectRatio: false, plugins: {legend: {position: 'bottom'}}}
+    });
+    drawChart('chartType', {
+        type: 'doughnut',
+        data: {labels: ['Anime', 'Manga'], datasets: [{data: [s.animeCount, s.mangaCount],
+            backgroundColor: ['#6f42c1', '#fd7e14'], borderWidth: 0}]},
+        options: {maintainAspectRatio: false, plugins: {legend: {position: 'bottom'}}}
+    });
+    drawChart('chartGenres', {
+        type: 'bar',
+        data: {labels: genres.map(g => g.name), datasets: [{label: 'Titles', data: genres.map(g => g.titleCount),
+            backgroundColor: '#0d6efd', borderRadius: 4}]},
+        options: {indexAxis: 'y', maintainAspectRatio: false, plugins: {legend: {display: false}},
+            scales: {x: {beginAtZero: true, ticks: {precision: 0}}}}
+    });
 }
 
 /* ------------------------- login and register ------------------------ */

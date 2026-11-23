@@ -5,6 +5,7 @@ public record TopRatedResponse(
         String title,
         String mediaType,
         Long votes,
-        Double positivePercent
+        Double positivePercent,
+        String coverImageUrl
 ) {
 }
