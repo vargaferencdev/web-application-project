@@ -310,12 +310,25 @@ chore: add cover images migration
 
 ## 📷 Screenshots
 
-Screenshots will be added soon.
+### Catalog
+Search, filters, rankings with cover images.
 
-<!--
 ![Catalog](docs/screenshots/catalog.png)
+
+### Title details
+Community rating, personal rating, list and favorites.
+
+![Title details](docs/screenshots/detail.png)
+
+### Statistics
+Charts about the personal list.
+
 ![Statistics](docs/screenshots/statistics.png)
--->
+
+### Admin interface
+Managing the catalog (admin role only).
+
+![Admin interface](docs/screenshots/admin.png)
 
 ---
 
