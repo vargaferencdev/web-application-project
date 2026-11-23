@@ -6,6 +6,7 @@ import hu.anitrack.entity.User;
 import hu.anitrack.entity.UserProfile;
 import hu.anitrack.entity.enums.Role;
 import hu.anitrack.exception.DuplicateResourceException;
+import hu.anitrack.exception.ResourceNotFoundException;
 import hu.anitrack.mapper.UserMapper;
 import hu.anitrack.repository.UserProfileRepository;
 import hu.anitrack.repository.UserRepository;
@@ -51,5 +52,12 @@ public class UserService {
         userProfileRepository.save(profile);
 
         return userMapper.toResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public UserResponse getById(Long id) {
+        return userRepository.findById(id)
+                .map(userMapper::toResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
     }
 }
